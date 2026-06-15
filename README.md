@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>🏒 АЭРОХОККЕЙ | ЧИСТОВЫЕ ВОРОТА (без гола от стен)</title>
+    <title>🏒 АЭРОХОККЕЙ | Играй кистями рук</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
         body {
@@ -22,6 +22,7 @@
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
+            margin-bottom: 5px;
         }
         .canvas-wrapper {
             position: relative;
@@ -36,7 +37,9 @@
             margin-top: 15px;
             display: flex;
             gap: 50px;
+            justify-content: center;
             background: #050520cc;
+            backdrop-filter: blur(8px);
             padding: 10px 30px;
             border-radius: 60px;
             color: white;
@@ -51,9 +54,10 @@
             padding: 8px 25px;
             margin: 10px;
             border-radius: 40px;
+            font-weight: bold;
             cursor: pointer;
         }
-        button:hover { background: #ff44aa; }
+        button:hover { background: #ff44aa; transform: scale(1.02); }
         .info, .status {
             margin-top: 10px;
             color: #88aaff;
@@ -64,7 +68,7 @@
 </head>
 <body>
 <div class="game-container">
-    <h1>🏒 АЭРОХОККЕЙ | ТОЛЬКО ВОРОТА 🏒</h1>
+    <h1>🏒 АЭРОХОККЕЙ | КИСТИ РУК 🏒</h1>
     <div class="canvas-wrapper">
         <canvas id="gameCanvas" width="1200" height="700"></canvas>
     </div>
@@ -78,8 +82,9 @@
         <div>🖐️ ПРАВАЯ КИСТЬ: <span id="rightStatus">❌</span></div>
     </div>
     <div class="info">
-        🥅 ГОЛ ТОЛЬКО КОГДА ШАЙБА ВХОДИТ В КРАСНУЮ ЗОНУ (ВОРОТА) <br>
-        🧱 ОСТАЛЬНЫЕ СТЕНКИ — ПРОСТО ОТСКОК
+        🥅 ПОКАЖИ КИСТИ РУК В КАМЕРУ — РАКЕТКИ ДВИГАЮТСЯ ЗА ТОБОЙ <br>
+        🏒 ОТБИВАЙ ШАЙБУ КИСТЯМИ! ГОЛ ТОЛЬКО В КРАСНУЮ ЗОНУ <br>
+        🔥 ЛУЧШЕ ВСЕГО РАБОТАЕТ В CHROME ИЛИ EDGE
     </div>
 </div>
 
@@ -95,20 +100,15 @@
     let lastGoalTime = 0;
     const GOAL_COOLDOWN = 600;
     
-    // Шайба
     let puck = { x: W/2, y: H/2, vx: 3, vy: 2, r: 13 };
-    
-    // Ракетки (кисти)
     let leftPaddle = { x: 100, y: H/2, r: 38, active: false };
     let rightPaddle = { x: W-100, y: H/2, r: 38, active: false };
     
-    // Фильтры
     let leftFilter = { x: 100, y: H/2 };
     let rightFilter = { x: W-100, y: H/2 };
     let lastLeftSeen = 0, lastRightSeen = 0;
     const LOST_TIMEOUT = 300;
     
-    // ========== MEDIAPIPE — ЦЕНТР КИСТИ ==========
     const videoElement = document.createElement('video');
     const hands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
     hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
@@ -167,12 +167,9 @@
     const camera = new Camera(videoElement, { onFrame: async () => { await hands.send({ image: videoElement }); }, width: W, height: H });
     camera.start();
     
-    // ========== ФИЗИКА — ГОЛ ТОЛЬКО В ВОРОТА ==========
     function checkGoal() {
         const now = Date.now();
         if (now - lastGoalTime < GOAL_COOLDOWN) return false;
-        
-        // Левая ВОРОТА — только если x < 20 и y внутри створа ворот (H/2-70, H/2+70)
         const goalY = (puck.y > H/2 - 70 && puck.y < H/2 + 70);
         if (puck.x - puck.r < 20 && goalY) {
             rightScore++;
@@ -181,7 +178,6 @@
             resetPuck('right');
             return true;
         }
-        // Правая ВОРОТА
         if (puck.x + puck.r > W - 20 && goalY) {
             leftScore++;
             document.getElementById('leftScore').innerText = leftScore;
@@ -206,25 +202,14 @@
         puck.x += puck.vx;
         puck.y += puck.vy;
         
-        // Верхняя и нижняя стены — только отскок (не гол)
         if (puck.y - puck.r < 0) { puck.y = puck.r; puck.vy = -puck.vy; }
         if (puck.y + puck.r > H) { puck.y = H - puck.r; puck.vy = -puck.vy; }
         
-        // Сначала проверяем гол (ворота)
         const goalScored = checkGoal();
         
-        // Левая стена (только отскок, если не ворота)
-        if (!goalScored && puck.x - puck.r < 0) {
-            puck.x = puck.r;
-            puck.vx = -puck.vx;
-        }
-        // Правая стена (только отскок, если не ворота)
-        if (!goalScored && puck.x + puck.r > W) {
-            puck.x = W - puck.r;
-            puck.vx = -puck.vx;
-        }
+        if (!goalScored && puck.x - puck.r < 0) { puck.x = puck.r; puck.vx = -puck.vx; }
+        if (!goalScored && puck.x + puck.r > W) { puck.x = W - puck.r; puck.vx = -puck.vx; }
         
-        // Отскок от ракеток
         let dxl = puck.x - leftPaddle.x;
         let dyl = puck.y - leftPaddle.y;
         let distL = Math.hypot(dxl, dyl);
@@ -269,7 +254,6 @@
         lastGoalTime = 0;
     }
     
-    // ========== ОТРИСОВКА ==========
     function draw() {
         ctx.clearRect(0, 0, W, H);
         let grad = ctx.createLinearGradient(0, 0, W, H);
@@ -290,7 +274,6 @@
         ctx.stroke();
         ctx.setLineDash([]);
         
-        // ВОРОТА — только здесь засчитывается гол
         ctx.fillStyle = "#ff000044";
         ctx.fillRect(0, H/2-70, 20, 140);
         ctx.fillRect(W-20, H/2-70, 20, 140);
